@@ -15,7 +15,7 @@ import sys
 import time
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
-
+from pathlib import Path
 import img2pdf
 import ocrmypdf
 import uuid
@@ -62,7 +62,8 @@ class ProcessPDF:
                 "suffix": ["String", ".pdf"],
                 "deskew": ["Boolean", True],
                 "removeBackground": ["Boolean", True],
-                "destPath" : ["String", "/root/doc"]
+                "destPath" : ["String", "/root/doc"],
+                "language" : ["String", "deu"]
             }
         }
         config.addScope(cfgDict)
@@ -75,23 +76,33 @@ class ProcessPDF:
         self.removeBackground = config.ocr_removeBackground
         self.destPath = config.ocr_destPath
         self.log = log
+        self.language = config.ocr_language
 
-    def process(self, pdfData):
+    def process(self, pdfData, outputName=None):
         inf, outf, sidef = self.store(pdfData)
-        self.log.info("Creating file: %s" % outf)
-        ocrmypdf.ocr(inf, outf, deskew=self.deskew, sidecar=sidef, remove_background=self.removeBackground,
-                     language='deu')
-        yr, mt, name = self.guess(sidef)
-        destName = os.path.join(self.destPath, "%s %s %s" % (yr, mt, name))
-        idx = 2
-        orgName = destName
-        while os.path.exists(destName):
-            destName = "%s %02d" % (orgName, idx)
-            idx+=1
+        #self.log.info("Creating file: %s" % outf)
+        try:
+            ocrmypdf.ocr(inf, outf, deskew=self.deskew, sidecar=sidef, remove_background=self.removeBackground,
+                     language=self.language)
+            if outputName is None:
+                yr, mt, name = self.guess(sidef)
+                destName = os.path.join(self.destPath, "%s %s %s" % (yr, mt, name))
+                idx = 2
+                orgName = destName
+                while os.path.exists(destName):
+                    destName = "%s %02d" % (orgName, idx)
+                    idx += 1
+            else:
+                destName = os.path.join(self.destPath, outputName)
+                os.makedirs(Path(destName).parent, exist_ok=True)
 
-        shutil.move(outf, destName)
+            shutil.move(outf, destName)
+            os.remove(sidef)
+            self.log.info("Created & processed document %s" % destName)
+        except ocrmypdf.exceptions.PriorOcrFoundError:
+            # ok - we skip the document, but write a message to the log file.
+            self.log.info("Skipping document, because of existing ocr: %s" % (inf if outputName is None else outputName))
         os.remove(inf)
-        os.remove(sidef)
 
     def store(self, pdfData):
         fNameBase = os.path.join(self.tmpPath, str(uuid.uuid4()))
@@ -267,13 +278,38 @@ class CheckMail:
                     data = file.read()
                     p.process(data)
 
+    def walkFiles(self, sourcePath):
+        p = ProcessPDF(self.config, self.log)
+        for rootDir, d, files in os.walk(sourcePath):
+            for f in files:
+                file2Process = os.path.join(rootDir, f)
+                pth = Path(file2Process)
+                if file2Process.endswith(".pdf") or file2Process.endswith(".PDF"):
+                    with open(file2Process, 'rb') as file:
+                        data = file.read()
+                        p.process(data, outputName=pth.relative_to(sourcePath))
+
 
 if __name__ == '__main__':
-    if len(sys.argv)>1:
+    if len(sys.argv) == 1:
+        CheckMail().retrieveMail()
+        sys.exit(0)
+
+    if len(sys.argv) == 2:
         sourcePath = sys.argv[1]
-        if(os.path.exists(sourcePath) and os.path.isdir(sourcePath)):
+        if (os.path.exists(sourcePath) and os.path.isdir(sourcePath)):
             CheckMail().processFiles(sourcePath)
         else:
-            print("Path %s is invalid" % sourcePath)
-    else:
-        CheckMail().retrieveMail()
+            print("Path %s is invalid %s" % sourcePath)
+
+    if len(sys.argv) == 3:
+        if sys.argv[1] != '-r':
+            print("Invalid option %s" % sys.argv[1])
+            sys.exit(-1)
+        sourcePath = sys.argv[2]
+        if (os.path.exists(sourcePath) and os.path.isdir(sourcePath)):
+            CheckMail().walkFiles(sourcePath)
+        else:
+            print("Path %s is invalid %s" % sourcePath)
+
+

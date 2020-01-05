@@ -6,14 +6,16 @@ This a utility app helping to process scanned documents using ocrmypdf. It does 
 + applying corrections to the document - e.g. remove background
 + it tries to guess meaningful file name out of the ocr scanned text. The file name consists of Year & Month
   in the form of YY MM and text string derived from a url or email address in the document.
++ process existing documents w/o changing the file name
 
 Use cases:
 + Process single PDFs from an email (e.g. Scan To Mail from a Scanner)
 + Process multiple JPEGs from an email and create one PDF (e.g. Pictures by Mobile Phone and Share through mail)
 + Process a directory of PDF of documents (e.g. from a mounted USB Storage device
++ Process a directory structure of PDF documents (i.e. including sub directores) and preserve filenames.
 
-For the first two use cases, the app is launched w/o parametes, the last use case requries the input directory as
-parameter.
+For the first two use cases, the app is launched w/o parametes, the third use case requires the input directory as
+parameter. The last use case requires two parameters: -r <root directory of structure>
 
 Requirements:
 ocrmmypdf
