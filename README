@@ -1,0 +1,20 @@
+ScanMail2PDF
+
+This a utility app helping to process scanned documents using ocrmypdf. It does the following
+
++ OCR scanning of the document, creating PDFs that are searchable
++ applying corrections to the document - e.g. remove background
++ it tries to guess meaningful file name out of the ocr scanned text. The file name consists of Year & Month
+  in the form of YY MM and text string derived from a url or email address in the document.
+
+Use cases:
++ Process single PDFs from an email (e.g. Scan To Mail from a Scanner)
++ Process multiple JPEGs from an email and create one PDF (e.g. Pictures by Mobile Phone and Share through mail)
++ Process a directory of PDF of documents (e.g. from a mounted USB Storage device
+
+For the first two use cases, the app is launched w/o parametes, the last use case requries the input directory as
+parameter.
+
+Requirements:
+ocrmmypdf
+Python 3
