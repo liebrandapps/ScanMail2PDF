@@ -78,7 +78,7 @@ class ProcessPDF:
         self.log = log
         self.language = config.ocr_language
 
-    def process(self, pdfData, outputName=None):
+    def process(self, pdfData, outputName=None, modificationTime=None):
         inf, outf, sidef = self.store(pdfData)
         #self.log.info("Creating file: %s" % outf)
         try:
@@ -93,16 +93,23 @@ class ProcessPDF:
             else:
                 destName = os.path.join(self.destPath, outputName)
                 os.makedirs(Path(destName).parent, exist_ok=True)
-
-            ocrmypdf.ocr(inf, outf, deskew=self.deskew, sidecar=sidef, remove_background=self.removeBackground,
-                     language=self.language)
-            shutil.move(outf, destName)
-            os.remove(sidef)
-            self.log.info("Created & processed document %s" % destName)
+            if modificationTime is not None and os.path.exists(destName) and os.path.getmtime(destName)>modificationTime:
+                self.log.info("Skipping processing, because newer file (%s) with same name exists" % destName)
+            else:
+                ocrmypdf.ocr(inf, outf, deskew=self.deskew, sidecar=sidef, remove_background=self.removeBackground,
+                         language=self.language)
+                shutil.move(outf, destName)
+                os.remove(sidef)
+                self.log.info("Created & processed document %s" % destName)
         except ocrmypdf.exceptions.PriorOcrFoundError:
             # ok - we skip the document, but write a message to the log file.
             self.log.info("Skipping processing (copy only), because of existing ocr: %s" % (inf if outputName is None else outputName))
             shutil.copyfile(inf, destName)
+        except ocrmypdf.exceptions.EncryptedPdfError:
+            # ok - we skip the document, but write a message to the log file.
+            self.log.warn("Skipping processing (copy only), because PDF is encrypted: %s" % (inf if outputName is None else outputName))
+            shutil.copyfile(inf, destName)
+
         os.remove(inf)
 
     def store(self, pdfData):
@@ -285,10 +292,11 @@ class CheckMail:
             for f in files:
                 file2Process = os.path.join(rootDir, f)
                 pth = Path(file2Process)
+                modTime = os.path.getmtime(file2Process)
                 if file2Process.endswith(".pdf") or file2Process.endswith(".PDF"):
                     with open(file2Process, 'rb') as file:
                         data = file.read()
-                        p.process(data, outputName=pth.relative_to(sourcePath))
+                        p.process(data, outputName=pth.relative_to(sourcePath), modificationTime=modTime)
 
 
 if __name__ == '__main__':
