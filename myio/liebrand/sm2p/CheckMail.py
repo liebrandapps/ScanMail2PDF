@@ -82,8 +82,6 @@ class ProcessPDF:
         inf, outf, sidef = self.store(pdfData)
         #self.log.info("Creating file: %s" % outf)
         try:
-            ocrmypdf.ocr(inf, outf, deskew=self.deskew, sidecar=sidef, remove_background=self.removeBackground,
-                     language=self.language)
             if outputName is None:
                 yr, mt, name = self.guess(sidef)
                 destName = os.path.join(self.destPath, "%s %s %s" % (yr, mt, name))
@@ -96,12 +94,15 @@ class ProcessPDF:
                 destName = os.path.join(self.destPath, outputName)
                 os.makedirs(Path(destName).parent, exist_ok=True)
 
+            ocrmypdf.ocr(inf, outf, deskew=self.deskew, sidecar=sidef, remove_background=self.removeBackground,
+                     language=self.language)
             shutil.move(outf, destName)
             os.remove(sidef)
             self.log.info("Created & processed document %s" % destName)
         except ocrmypdf.exceptions.PriorOcrFoundError:
             # ok - we skip the document, but write a message to the log file.
-            self.log.info("Skipping document, because of existing ocr: %s" % (inf if outputName is None else outputName))
+            self.log.info("Skipping processing (copy only), because of existing ocr: %s" % (inf if outputName is None else outputName))
+            shutil.copyfile(inf, destName)
         os.remove(inf)
 
     def store(self, pdfData):
